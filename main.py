@@ -1,18 +1,17 @@
 # ============================================
-# MÓDULO 3 · INFORMACIÓN PARTICULAR DEL ESTUDIANTADO (REPORTE EJECUTIVO)
+# MÓDULO 3 · INFORMACIÓN PARTICULAR DEL ESTUDIANTADO (REPORTE EJECUTIVO, SIN RADAR)
 # ============================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 
 # -----------------------------------
 # CONFIG STREAMLIT
 # -----------------------------------
 st.set_page_config(page_title="Información particular • CHASIDE", layout="wide")
 st.title("📘 Información particular del estudiantado – CHASIDE")
-st.caption("Selecciona una carrera y un estudiante para consultar su reporte ejecutivo.")
+st.caption("Seleccione una carrera y un estudiante para consultar el reporte ejecutivo individual.")
 
 # ============================================
 # 1) CARGA DE DATOS
@@ -23,13 +22,13 @@ url = st.text_input(
 )
 
 @st.cache_data(show_spinner=False)
-def load_data(u):
+def load_data(u: str) -> pd.DataFrame:
     return pd.read_csv(u)
 
 try:
     df = load_data(url)
 except Exception as e:
-    st.error(f"❌ No pude cargar el archivo: {e}")
+    st.error(f"❌ No fue posible cargar el archivo: {e}")
     st.stop()
 
 # ============================================
@@ -39,7 +38,6 @@ columnas_items = df.columns[5:103]
 columna_carrera = '¿A qué carrera desea ingresar?'
 columna_nombre  = 'Ingrese su nombre completo'
 
-# Validación básica
 faltantes = [c for c in [columna_carrera, columna_nombre] if c not in df.columns]
 if faltantes:
     st.error(f"❌ Faltan columnas requeridas: {faltantes}")
@@ -154,7 +152,7 @@ df['Score'] = df[score_cols].max(axis=1)
 # ============================================
 # 3) UI: SELECCIÓN CARRERA → ESTUDIANTE
 # ============================================
-st.markdown("### 🧭 Selecciona carrera y estudiante")
+st.markdown("### 🧭 Seleccione carrera y estudiante")
 
 carreras = sorted(df[columna_carrera].dropna().unique())
 if not carreras:
@@ -168,11 +166,9 @@ if d_carrera.empty:
     st.warning("No hay estudiantes para esta carrera.")
     st.stop()
 
-# Lista alfabética de estudiantes
 nombres = sorted(d_carrera[columna_nombre].astype(str).unique())
 est_sel = st.selectbox("Estudiante:", nombres, index=0)
 
-# Registro del estudiante (toma desde df para asegurar columnas añadidas posteriormente)
 alumno_mask = (df[columna_carrera] == carrera_sel) & (df[columna_nombre].astype(str) == est_sel)
 alumno = df[alumno_mask].copy()
 if alumno.empty:
@@ -180,23 +176,25 @@ if alumno.empty:
     st.stop()
 
 # ============================================
-# 4) REPORTE EJECUTIVO DEL ESTUDIANTE
+# 4) REPORTE EJECUTIVO (FORMAL)
 # ============================================
-st.markdown("## 🧾 Reporte ejecutivo")
+st.markdown("## 🧾 Reporte ejecutivo individual")
 
 categoria = alumno.iloc[0]['Semáforo Vocacional']
 cat_count = int((d_carrera['Semáforo Vocacional'] == categoria).sum())
 
-c1,c2 = st.columns([2,1])
-with c1:
-    st.metric("Nombre completo", est_sel)
-with c2:
-    st.metric("Categoría (en su carrera)", f"{categoria} · {cat_count} estudiantes")
+st.markdown(
+    f"""
+**Nombre del estudiante:** {est_sel}  
+**Carrera:** {carrera_sel}  
+**Categoría diagnóstica:** {categoria}  
+**Tamaño de la categoría en la carrera:** {cat_count} estudiante(s)
+"""
+)
 
-# ============================================
-# 5) BANDERAS: Joven promesa / Joven en riesgo
-#    (reemplaza TODO este bloque por el siguiente)
-# ============================================
+st.divider()
+
+# Banderas (promesa / riesgo)
 verde_carrera    = d_carrera[d_carrera['Semáforo Vocacional']=='Verde'].copy()
 amarillo_carrera = d_carrera[d_carrera['Semáforo Vocacional']=='Amarillo'].copy()
 
@@ -207,16 +205,16 @@ if not verde_carrera.empty:
         .head(5)[columna_nombre].astype(str).tolist()
     )
     if est_sel in top5_verde:
-        banderas.append("🟢 Joven promesa (Top 5 Verde de su carrera)")
-
+        banderas.append("🟢 Joven promesa (Top 5 de la categoría Verde en su carrera).")
 if not amarillo_carrera.empty:
     bottom5_amar = (
         amarillo_carrera.sort_values('Score', ascending=True)
         .head(5)[columna_nombre].astype(str).tolist()
     )
     if est_sel in bottom5_amar:
-        banderas.append("🟠 Joven en riesgo de reprobar (Bottom 5 Amarillo de su carrera)")
+        banderas.append("🟠 Joven en riesgo de reprobar (Bottom 5 de la categoría Amarillo en su carrera).")
 
+st.markdown("### Indicadores particulares")
 if banderas:
     for msg in banderas:
         if "promesa" in msg.lower():
@@ -224,69 +222,134 @@ if banderas:
         else:
             st.warning(msg, icon="⚠️")
 else:
-    st.info("Sin banderas especiales para este estudiante.", icon="ℹ️")
+    st.info("Sin indicadores particulares para este estudiante.", icon="ℹ️")
+
+st.divider()
+
 # ============================================
-# 6) RADAR: Alumno vs Promedio Verde de su carrera
-#     - Perfil por letra = INTERES + APTITUD
-#     - Se listan las 3 letras con mayor brecha (Promedio Verde – Alumno)
+# 5) COMPARATIVO VS PROMEDIO DEL GRUPO (SIN GRÁFICA)
+#    Preferencia: promedio de la categoría Verde de la carrera.
+#    Fallback   : promedio total de la carrera (si no hay Verde).
 # ============================================
 
-# Asegurar columnas TOTAL_* (siempre después de INTERES_* y APTITUD_*)
+# Asegurar columnas TOTAL_* (INTERES + APTITUD)
 for a in areas:
     if f'TOTAL_{a}' not in df.columns:
         df[f'TOTAL_{a}'] = df[f'INTERES_{a}'] + df[f'APTITUD_{a}']
 
-promedio_verde = d_carrera[d_carrera['Semáforo Vocacional']=='Verde']
-st.markdown("## 🕸️ Radar: Alumno vs promedio VERDE (misma carrera)")
+grupo_ref = d_carrera[d_carrera['Semáforo Vocacional']=='Verde'].copy()
+referencia = "Promedio del grupo Verde de la carrera"
+if grupo_ref.empty:
+    grupo_ref = d_carrera.copy()
+    referencia = "Promedio general de la carrera (no hay estudiantes Verde)"
 
-if promedio_verde.empty:
-    st.warning("No hay estudiantes 'Verde' en esta carrera para comparar el radar.")
+alumno_vec = df.loc[alumno_mask, [f'TOTAL_{a}' for a in areas]].iloc[0].astype(float)
+grupo_vec  = grupo_ref[[f'TOTAL_{a}' for a in areas]].mean().astype(float)
+
+df_comp = pd.DataFrame({
+    "Letra": areas,
+    "Alumno": [alumno_vec[f"TOTAL_{a}"] for a in areas],
+    "Promedio grupo": [grupo_vec[f"TOTAL_{a}"] for a in areas]
+})
+df_comp["Diferencia (Alumno - Grupo)"] = df_comp["Alumno"] - df_comp["Promedio grupo"]
+
+st.markdown(f"### Comparativo por dimensión CHASIDE  \n_Referencia:_ **{referencia}**")
+st.dataframe(df_comp.set_index("Letra"), use_container_width=True)
+
+# Fortalezas (arriba del promedio) y Áreas por reforzar (Top-3 abajo del promedio)
+fortalezas = df_comp[df_comp["Diferencia (Alumno - Grupo)"] > 0].sort_values(
+    "Diferencia (Alumno - Grupo)", ascending=False
+)[["Letra","Diferencia (Alumno - Grupo)"]]
+
+brechas = (df_comp["Promedio grupo"] - df_comp["Alumno"])
+top3_reforzar = brechas.sort_values(ascending=False).head(3)
+top3_tabla = pd.DataFrame({"Letra": top3_reforzar.index, "Brecha (Grupo - Alumno)": top3_reforzar.values})
+
+st.markdown("### Fortalezas destacadas (por encima del promedio de referencia)")
+if fortalezas.empty:
+    st.info("No se observan letras por encima del promedio de referencia.")
 else:
-    # Vectores (lee DIRECTO de df para evitar copias sin columnas)
-    alumno_vec = df.loc[alumno_mask, [f'TOTAL_{a}' for a in areas]].iloc[0].astype(float)
-    verde_vec  = df.loc[(df[columna_carrera]==carrera_sel) & (df['Semáforo Vocacional']=='Verde'),
-                        [f'TOTAL_{a}' for a in areas]].mean().astype(float)
+    st.table(fortalezas.set_index("Letra"))
 
-    # Data para radar
-    df_radar = pd.DataFrame({
-        'Área': areas,
-        'Alumno': [alumno_vec[f'TOTAL_{a}'] for a in areas],
-        'Promedio Verde': [verde_vec[f'TOTAL_{a}'] for a in areas]
-    })
+st.markdown("### Áreas por reforzar (principales brechas)")
+if (top3_reforzar <= 0).all():
+    st.info("El estudiante está a la par o por encima del promedio del grupo en todas las letras.")
+else:
+    st.table(top3_tabla.set_index("Letra"))
 
-    fig_radar = px.line_polar(
-        df_radar.melt(id_vars='Área', value_vars=['Alumno','Promedio Verde'], var_name='Serie', value_name='Valor'),
-        r='Valor', theta='Área', color='Serie',
-        line_close=True, markers=True,
-        color_discrete_map={'Alumno':'#2563eb', 'Promedio Verde':'#22c55e'},
-        title=f"Perfil CHASIDE – {est_sel} vs Promedio Verde ({carrera_sel})"
-    )
-    fig_radar.update_traces(fill='toself', opacity=0.75)
-    st.plotly_chart(fig_radar, use_container_width=True)
+st.divider()
 
-    # Top 3 letras a reforzar (donde el alumno está por debajo del Promedio Verde)
-    brechas = (verde_vec.values - alumno_vec.values)
-    diffs = pd.Series(brechas, index=areas).sort_values(ascending=False)
-    top3 = diffs.head(3)
+# ============================================
+# 6) COHERENCIA VOCACIONAL (ELECCIÓN VS PERFIL CHASIDE)
+# ============================================
+st.markdown("## 🎯 Coherencia vocacional (elección vs perfil CHASIDE)")
 
-    descripciones_chaside = {
-        "C": "Organización, orden, análisis/síntesis, colaboración, cálculo.",
-        "H": "Precisión verbal, relación de hechos, justicia, persuasión.",
-        "A": "Creatividad, detalle, intuición; habilidades visuales/auditivas/manuales.",
-        "S": "Investigación, precisión, percepción, análisis; altruismo y paciencia.",
-        "I": "Cálculo, pensamiento científico/crítico, exactitud, planificación.",
-        "D": "Justicia, equidad, colaboración, liderazgo; toma de decisiones.",
-        "E": "Investigación, análisis y síntesis, cálculo numérico, observación, método."
-    }
+area_fuerte = alumno.iloc[0]['Area_Fuerte_Ponderada']
+carrera_elegida = carrera_sel
+coincidencia = "Sin perfil definido"
 
-    st.subheader("🔎 Áreas por reforzar (vs promedio Verde)")
-    if (top3 <= 0).all():
-        st.info("El alumno está a la par o por encima del promedio Verde en todas las letras.")
+perfil_sel = perfil_carreras.get(str(carrera_elegida).strip())
+if perfil_sel:
+    if area_fuerte in perfil_sel.get('Fuerte', []):
+        coincidencia = "Coherente"
+    elif area_fuerte in perfil_sel.get('Baja', []):
+        coincidencia = "Requiere orientación"
     else:
-        for letra, delta in top3.items():
-            if delta > 0:
-                st.markdown(f"- **{letra}** (brecha {delta:.2f}): {descripciones_chaside[letra]}")
+        coincidencia = "Neutral"
+else:
+    coincidencia = "Sin perfil definido"
+
+# Sugerencias si NO es coherente
+sugeridas = [c for c, p in perfil_carreras.items() if area_fuerte in p.get('Fuerte', [])]
+
+st.markdown(
+    f"""
+**Área fuerte ponderada del estudiante (CHASIDE):** **{area_fuerte}**  
+**Evaluación de coherencia con la carrera elegida:** **{coincidencia}**
+"""
+)
+
+if coincidencia != "Coherente":
+    if sugeridas:
+        st.markdown(
+            "**Carreras con mayor afinidad al perfil CHASIDE del estudiante:**<br>"
+            + ", ".join(sugeridas),
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown("_No se encontraron sugerencias basadas en el área fuerte._")
 
 # ============================================
-# FIN DEL MÓDULO
+# 7) DESCARGAS
 # ============================================
+st.markdown("## ⬇️ Descargas")
+
+# Comparativo por letra
+st.download_button(
+    "Descargar comparativo por letra (CSV)",
+    data=df_comp.to_csv(index=False).encode("utf-8"),
+    file_name=f"comparativo_letras_{est_sel}.csv",
+    mime="text/csv"
+)
+
+# Resumen ejecutivo
+resumen_dict = {
+    "Estudiante": est_sel,
+    "Carrera": carrera_elegida,
+    "Categoría": categoria,
+    "Tamaño categoría (carrera)": cat_count,
+    "Área fuerte CHASIDE": area_fuerte,
+    "Coherencia elección": coincidencia,
+    "Referencia comparativa": referencia,
+}
+# Agrega fortalezas y top3 en forma legible
+resumen_dict["Fortalezas (>0)"] = "; ".join([f"{r.Letra}:{r['Diferencia (Alumno - Grupo)']:.2f}" for _, r in fortalezas.iterrows()]) if not fortalezas.empty else "-"
+resumen_dict["Top3 a reforzar"] = "; ".join([f"{k}:{v:.2f}" for k, v in top3_reforzar.items() if v>0]) if not (top3_reforzar<=0).all() else "-"
+
+resumen_df = pd.DataFrame([resumen_dict])
+st.download_button(
+    "Descargar resumen ejecutivo (CSV)",
+    data=resumen_df.to_csv(index=False).encode("utf-8"),
+    file_name=f"reporte_ejecutivo_{est_sel}.csv",
+    mime="text/csv"
+)
