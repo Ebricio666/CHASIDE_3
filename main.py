@@ -228,23 +228,30 @@ st.divider()
 
 # ============================================
 # 5) COMPARATIVO VS PROMEDIO DEL GRUPO (SIN GRÁFICA)
-#    Preferencia: promedio de la categoría Verde de la carrera.
-#    Fallback   : promedio total de la carrera (si no hay Verde).
+#    ***FIX***: calcular referencia SIEMPRE desde `df` con máscaras,
+#    no desde `d_carrera`/`grupo_ref` ya que podrían no tener TOTAL_*.
 # ============================================
 
-# Asegurar columnas TOTAL_* (INTERES + APTITUD)
+# Asegurar columnas TOTAL_* (INTERES + APTITUD) en df
 for a in areas:
     if f'TOTAL_{a}' not in df.columns:
         df[f'TOTAL_{a}'] = df[f'INTERES_{a}'] + df[f'APTITUD_{a}']
 
-grupo_ref = d_carrera[d_carrera['Semáforo Vocacional']=='Verde'].copy()
-referencia = "Promedio del grupo Verde de la carrera"
-if grupo_ref.empty:
-    grupo_ref = d_carrera.copy()
-    referencia = "Promedio general de la carrera (no hay estudiantes Verde)"
+# Máscaras para referencia
+mask_carrera = df[columna_carrera] == carrera_sel
+mask_verde   = df['Semáforo Vocacional'] == 'Verde'
 
-alumno_vec = df.loc[alumno_mask, [f'TOTAL_{a}' for a in areas]].iloc[0].astype(float)
-grupo_vec  = grupo_ref[[f'TOTAL_{a}' for a in areas]].mean().astype(float)
+ref_cols = [f'TOTAL_{a}' for a in areas]
+
+if df.loc[mask_carrera & mask_verde, ref_cols].empty:
+    ref_df = df.loc[mask_carrera, ref_cols]
+    referencia = "Promedio general de la carrera (no hay estudiantes Verde)"
+else:
+    ref_df = df.loc[mask_carrera & mask_verde, ref_cols]
+    referencia = "Promedio del grupo Verde de la carrera"
+
+grupo_vec  = ref_df.mean().astype(float)
+alumno_vec = df.loc[alumno_mask, ref_cols].iloc[0].astype(float)
 
 df_comp = pd.DataFrame({
     "Letra": areas,
@@ -256,7 +263,7 @@ df_comp["Diferencia (Alumno - Grupo)"] = df_comp["Alumno"] - df_comp["Promedio g
 st.markdown(f"### Comparativo por dimensión CHASIDE  \n_Referencia:_ **{referencia}**")
 st.dataframe(df_comp.set_index("Letra"), use_container_width=True)
 
-# Fortalezas (arriba del promedio) y Áreas por reforzar (Top-3 abajo del promedio)
+# Fortalezas y Áreas por reforzar
 fortalezas = df_comp[df_comp["Diferencia (Alumno - Grupo)"] > 0].sort_values(
     "Diferencia (Alumno - Grupo)", ascending=False
 )[["Letra","Diferencia (Alumno - Grupo)"]]
@@ -286,7 +293,6 @@ st.markdown("## 🎯 Coherencia vocacional (elección vs perfil CHASIDE)")
 
 area_fuerte = alumno.iloc[0]['Area_Fuerte_Ponderada']
 carrera_elegida = carrera_sel
-coincidencia = "Sin perfil definido"
 
 perfil_sel = perfil_carreras.get(str(carrera_elegida).strip())
 if perfil_sel:
@@ -308,14 +314,9 @@ st.markdown(
 **Evaluación de coherencia con la carrera elegida:** **{coincidencia}**
 """
 )
-
 if coincidencia != "Coherente":
     if sugeridas:
-        st.markdown(
-            "**Carreras con mayor afinidad al perfil CHASIDE del estudiante:**<br>"
-            + ", ".join(sugeridas),
-            unsafe_allow_html=True
-        )
+        st.markdown("**Carreras con mayor afinidad al perfil CHASIDE del estudiante:** " + ", ".join(sugeridas))
     else:
         st.markdown("_No se encontraron sugerencias basadas en el área fuerte._")
 
@@ -324,7 +325,6 @@ if coincidencia != "Coherente":
 # ============================================
 st.markdown("## ⬇️ Descargas")
 
-# Comparativo por letra
 st.download_button(
     "Descargar comparativo por letra (CSV)",
     data=df_comp.to_csv(index=False).encode("utf-8"),
@@ -332,7 +332,6 @@ st.download_button(
     mime="text/csv"
 )
 
-# Resumen ejecutivo
 resumen_dict = {
     "Estudiante": est_sel,
     "Carrera": carrera_elegida,
@@ -342,7 +341,6 @@ resumen_dict = {
     "Coherencia elección": coincidencia,
     "Referencia comparativa": referencia,
 }
-# Agrega fortalezas y top3 en forma legible
 resumen_dict["Fortalezas (>0)"] = "; ".join([f"{r.Letra}:{r['Diferencia (Alumno - Grupo)']:.2f}" for _, r in fortalezas.iterrows()]) if not fortalezas.empty else "-"
 resumen_dict["Top3 a reforzar"] = "; ".join([f"{k}:{v:.2f}" for k, v in top3_reforzar.items() if v>0]) if not (top3_reforzar<=0).all() else "-"
 
