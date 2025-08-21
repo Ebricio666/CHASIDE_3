@@ -15,6 +15,35 @@ st.set_page_config(page_title="Información particular • CHASIDE", layout="wid
 st.title("📘 Información particular del estudiantado – CHASIDE")
 
 # ============================================
+
+# --- Pastel por carrera (robusto) ---
+resumen = (
+    d['Semáforo Vocacional']
+      .value_counts()
+      .reindex(['Verde','Amarillo','Sin sugerencia','No aceptable'], fill_value=0)
+      .rename_axis('Categoría')        # asegura columna 'Categoría'
+      .reset_index(name='N')           # asegura columna 'N'
+)
+
+# Si quieres asegurar tipo int:
+resumen['N'] = resumen['N'].astype(int)
+
+fig = px.pie(
+    resumen,
+    names='Categoría',
+    values='N',
+    hole=0.35,
+    color='Categoría',
+    color_discrete_map={
+        'Verde':'#22c55e',
+        'Amarillo':'#f59e0b',
+        'Sin sugerencia':'#94a3b8',
+        'No aceptable':'#ef4444'
+    },
+    title=f"Distribución por categoría – {carrera_sel}"
+)
+fig.update_traces(textposition='inside', texttemplate='%{label}<br>%{percent:.1%} (%{value})')
+st.plotly_chart(fig, use_container_width=True)
 # 1) CARGA DE DATOS
 # ============================================
 st.caption("Este módulo procesa CHASIDE y permite evaluar una carrera específica.")
