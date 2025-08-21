@@ -1,7 +1,6 @@
 # ============================================
 # MÓDULO 3 · INFORMACIÓN PARTICULAR DEL ESTUDIANTADO (REPORTE EJECUTIVO)
 # ============================================
-# Uso: streamlit run modulo3_info_particular.py
 
 import streamlit as st
 import pandas as pd
@@ -91,14 +90,14 @@ for a in areas:
     df[f'INTERES_{a}']  = df[[col_item(i) for i in intereses_items[a]]].sum(axis=1)
     df[f'APTITUD_{a}'] = df[[col_item(i) for i in aptitudes_items[a]]].sum(axis=1)
 
-# Ponderación fija (puedes exponerla si quieres)
+# Ponderación fija
 peso_intereses, peso_aptitudes = 0.8, 0.2
 for a in areas:
     df[f'PUNTAJE_COMBINADO_{a}'] = df[f'INTERES_{a}']*peso_intereses + df[f'APTITUD_{a}']*peso_aptitudes
 
 df['Area_Fuerte_Ponderada'] = df.apply(lambda r: max(areas, key=lambda a: r[f'PUNTAJE_COMBINADO_{a}']), axis=1)
 
-# Perfiles carrera (coherencia)
+# Perfiles y coherencia
 perfil_carreras = {
     'Arquitectura': {'Fuerte': ['A','I','C']},
     'Contador Público': {'Fuerte': ['C','D']},
@@ -152,15 +151,6 @@ df['Semáforo Vocacional']             = df.apply(semaforo, axis=1)
 score_cols = [f'PUNTAJE_COMBINADO_{a}' for a in areas]
 df['Score'] = df[score_cols].max(axis=1)
 
-# Columna EMAIL (detección robusta)
-def detectar_email_column(columns):
-    lowered = [c.lower() for c in columns]
-    for i, c in enumerate(lowered):
-        if ('correo' in c) or ('email' in c) or ('e-mail' in c):
-            return columns[i]
-    return None
-columna_email = detectar_email_column(df.columns)
-
 # ============================================
 # 3) UI: SELECCIÓN CARRERA → ESTUDIANTE
 # ============================================
@@ -182,8 +172,9 @@ if d_carrera.empty:
 nombres = sorted(d_carrera[columna_nombre].astype(str).unique())
 est_sel = st.selectbox("Estudiante:", nombres, index=0)
 
-# Registro del estudiante
-alumno = d_carrera[d_carrera[columna_nombre].astype(str) == est_sel].copy()
+# Registro del estudiante (toma desde df para asegurar columnas añadidas posteriormente)
+alumno_mask = (df[columna_carrera] == carrera_sel) & (df[columna_nombre].astype(str) == est_sel)
+alumno = df[alumno_mask].copy()
 if alumno.empty:
     st.warning("No se encontró el estudiante seleccionado.")
     st.stop()
@@ -193,41 +184,31 @@ if alumno.empty:
 # ============================================
 st.markdown("## 🧾 Reporte ejecutivo")
 
-# Datos base
-nombre_full = est_sel
-email = alumno.iloc[0][columna_email] if columna_email and columna_email in alumno.columns else "—"
 categoria = alumno.iloc[0]['Semáforo Vocacional']
-
-# Tamaño de la categoría dentro de la carrera
 cat_count = int((d_carrera['Semáforo Vocacional'] == categoria).sum())
 
-# KPIs ejecutivos
-c1,c2,c3 = st.columns([2,1,1])
+c1,c2 = st.columns([2,1])
 with c1:
-    st.metric("Nombre completo", nombre_full)
+    st.metric("Nombre completo", est_sel)
 with c2:
-    st.metric("Categoría", categoria)
-with c3:
-    st.metric("Personas en esta categoría (carrera)", cat_count)
-
-st.caption(f"Email: **{email}**" if email != "—" else "Email: — (no detectado)")
+    st.metric("Categoría (en su carrera)", f"{categoria} · {cat_count} estudiantes")
 
 # ============================================
 # 5) BANDERAS: Joven promesa / Joven en riesgo
 #    - Top 5 VERDE (score alto) de la carrera → 'Joven promesa'
 #    - Bottom 5 AMARILLO (score bajo) de la carrera → 'Joven en riesgo de reprobar'
 # ============================================
-verde_carrera   = d_carrera[d_carrera['Semáforo Vocacional']=='Verde'].copy()
-amarillo_carrera= d_carrera[d_carrera['Semáforo Vocacional']=='Amarillo'].copy()
+verde_carrera    = d_carrera[d_carrera['Semáforo Vocacional']=='Verde'].copy()
+amarillo_carrera = d_carrera[d_carrera['Semáforo Vocacional']=='Amarillo'].copy()
 
 banderas = []
 if not verde_carrera.empty:
     top5_verde = verde_carrera.sort_values('Score', ascending=False).head(5)[columna_nombre].astype(str).tolist()
-    if nombre_full in top5_verde:
+    if est_sel in top5_verde:
         banderas.append("🟢 Joven promesa (Top 5 Verde de su carrera)")
 if not amarillo_carrera.empty:
     bottom5_amar = amarillo_carrera.sort_values('Score', ascending=True).head(5)[columna_nombre].astype(str).tolist()
-    if nombre_full in bottom5_amar:
+    if est_sel in bottom5_amar:
         banderas.append("🟠 Joven en riesgo de reprobar (Bottom 5 Amarillo de su carrera)")
 
 if banderas:
@@ -241,22 +222,22 @@ else:
 #     - Perfil por letra = INTERES + APTITUD
 #     - Se listan las 3 letras con mayor brecha (Promedio Verde – Alumno)
 # ============================================
-st.markdown("## 🕸️ Radar: Alumno vs promedio de estudiantes Verdes (misma carrera)")
 
-# Construir totales por letra para todo el DF
+# Asegurar columnas TOTAL_* (siempre después de INTERES_* y APTITUD_*)
 for a in areas:
-    # Ya tenemos INTERES_* y APTITUD_*, sumamos para perfil total por letra
-    df[f'TOTAL_{a}'] = df[f'INTERES_{a}'] + df[f'APTITUD_{a}']
+    if f'TOTAL_{a}' not in df.columns:
+        df[f'TOTAL_{a}'] = df[f'INTERES_{a}'] + df[f'APTITUD_{a}']
 
-# Subconjuntos
 promedio_verde = d_carrera[d_carrera['Semáforo Vocacional']=='Verde']
+st.markdown("## 🕸️ Radar: Alumno vs promedio VERDE (misma carrera)")
+
 if promedio_verde.empty:
     st.warning("No hay estudiantes 'Verde' en esta carrera para comparar el radar.")
 else:
-    # Vector alumno
-    alumno_vec = alumno[[f'TOTAL_{a}' for a in areas]].iloc[0].astype(float)
-    # Promedio Verde
-    verde_vec = promedio_verde[[f'TOTAL_{a}' for a in areas]].mean().astype(float)
+    # Vectores (lee DIRECTO de df para evitar copias sin columnas)
+    alumno_vec = df.loc[alumno_mask, [f'TOTAL_{a}' for a in areas]].iloc[0].astype(float)
+    verde_vec  = df.loc[(df[columna_carrera]==carrera_sel) & (df['Semáforo Vocacional']=='Verde'),
+                        [f'TOTAL_{a}' for a in areas]].mean().astype(float)
 
     # Data para radar
     df_radar = pd.DataFrame({
@@ -265,23 +246,21 @@ else:
         'Promedio Verde': [verde_vec[f'TOTAL_{a}'] for a in areas]
     })
 
-    # Plot
     fig_radar = px.line_polar(
         df_radar.melt(id_vars='Área', value_vars=['Alumno','Promedio Verde'], var_name='Serie', value_name='Valor'),
         r='Valor', theta='Área', color='Serie',
         line_close=True, markers=True,
         color_discrete_map={'Alumno':'#2563eb', 'Promedio Verde':'#22c55e'},
-        title=f"Perfil CHASIDE – {nombre_full} vs Promedio Verde ({carrera_sel})"
+        title=f"Perfil CHASIDE – {est_sel} vs Promedio Verde ({carrera_sel})"
     )
     fig_radar.update_traces(fill='toself', opacity=0.75)
     st.plotly_chart(fig_radar, use_container_width=True)
 
-    # Top 3 letras a reforzar (donde el alumno está por debajo del promedio Verde)
+    # Top 3 letras a reforzar (donde el alumno está por debajo del Promedio Verde)
     brechas = (verde_vec.values - alumno_vec.values)
     diffs = pd.Series(brechas, index=areas).sort_values(ascending=False)
     top3 = diffs.head(3)
 
-    # Descripciones breves para recomendaciones
     descripciones_chaside = {
         "C": "Organización, orden, análisis/síntesis, colaboración, cálculo.",
         "H": "Precisión verbal, relación de hechos, justicia, persuasión.",
