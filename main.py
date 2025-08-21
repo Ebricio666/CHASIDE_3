@@ -195,28 +195,36 @@ with c2:
 
 # ============================================
 # 5) BANDERAS: Joven promesa / Joven en riesgo
-#    - Top 5 VERDE (score alto) de la carrera → 'Joven promesa'
-#    - Bottom 5 AMARILLO (score bajo) de la carrera → 'Joven en riesgo de reprobar'
+#    (reemplaza TODO este bloque por el siguiente)
 # ============================================
 verde_carrera    = d_carrera[d_carrera['Semáforo Vocacional']=='Verde'].copy()
 amarillo_carrera = d_carrera[d_carrera['Semáforo Vocacional']=='Amarillo'].copy()
 
 banderas = []
 if not verde_carrera.empty:
-    top5_verde = verde_carrera.sort_values('Score', ascending=False).head(5)[columna_nombre].astype(str).tolist()
+    top5_verde = (
+        verde_carrera.sort_values('Score', ascending=False)
+        .head(5)[columna_nombre].astype(str).tolist()
+    )
     if est_sel in top5_verde:
         banderas.append("🟢 Joven promesa (Top 5 Verde de su carrera)")
+
 if not amarillo_carrera.empty:
-    bottom5_amar = amarillo_carrera.sort_values('Score', ascending=True).head(5)[columna_nombre].astype(str).tolist()
+    bottom5_amar = (
+        amarillo_carrera.sort_values('Score', ascending=True)
+        .head(5)[columna_nombre].astype(str).tolist()
+    )
     if est_sel in bottom5_amar:
         banderas.append("🟠 Joven en riesgo de reprobar (Bottom 5 Amarillo de su carrera)")
 
 if banderas:
-    for b in banderas:
-        st.success(b) if "promesa" in b else st.warning(b)
+    for msg in banderas:
+        if "promesa" in msg.lower():
+            st.success(msg, icon="✅")
+        else:
+            st.warning(msg, icon="⚠️")
 else:
-    st.info("Sin banderas especiales para este estudiante.")
-
+    st.info("Sin banderas especiales para este estudiante.", icon="ℹ️")
 # ============================================
 # 6) RADAR: Alumno vs Promedio Verde de su carrera
 #     - Perfil por letra = INTERES + APTITUD
