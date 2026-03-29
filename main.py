@@ -1,6 +1,6 @@
 # ============================================
 # MÓDULO 3 · INFORMACIÓN PARTICULAR DEL ESTUDIANTADO
-# Versión depurada: URL + selección + ubicación + PDF
+# Versión depurada: URL + selección + ubicación + conclusión + PDF
 # ============================================
 
 import io
@@ -21,8 +21,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 st.set_page_config(page_title="Información particular • CHASIDE", layout="wide")
 st.title("📘 Información particular del estudiantado – CHASIDE")
 st.caption(
-    "Seleccione una carrera y un estudiante para consultar su ubicación dentro del análisis general "
-    "y descargar el reporte individual en PDF."
+    "Seleccione una carrera y un estudiante para consultar su ubicación dentro del análisis general, "
+    "la recomendación individual y descargar el reporte en PDF."
 )
 
 # ============================================
@@ -233,10 +233,10 @@ if not df_intensidad.empty:
     )
 
 descripcion_intensidad = {
-    "Sin perfil": "Estudiante cuya elección de carrera no muestra correspondencia con su perfil vocacional. Se recomienda reevaluación vocacional y posible cambio de carrera.",
-    "Perfil en riesgo": "Estudiante cuyo perfil vocacional presenta una coincidencia mínima con la carrera elegida. Existe alto riesgo de dificultades en asignaturas específicas de la carrera.",
+    "Sin perfil": "Estudiante cuya elección de carrera no muestra correspondencia con su perfil vocacional.",
+    "Perfil en riesgo": "Estudiante cuyo perfil vocacional presenta una coincidencia mínima con la carrera elegida.",
     "Perfil en transición": "Estudiante cuya elección profesional y perfil vocacional presentan congruencia, aunque aún en proceso de consolidación.",
-    "Jóven promesa": "Estudiante con alta congruencia entre su perfil vocacional y la carrera elegida, con condiciones favorables para un desempeño sólido."
+    "Jóven promesa": "Estudiante con alta congruencia entre su perfil vocacional y la carrera elegida."
 }
 
 # ============================================
@@ -288,7 +288,82 @@ df['Destino_Compatible'] = df.apply(
 )
 
 # ============================================
-# 5) SELECCIÓN CARRERA → ESTUDIANTE
+# 5) CONCLUSIÓN Y RECOMENDACIÓN
+# ============================================
+def construir_conclusion_recomendacion(al, carrera_sel, destino_compatible, nivel_alumno):
+    categoria = al['Semáforo Vocacional']
+    respondio_igual = bool(al.get('Respondio_Siempre_Igual', False))
+
+    if respondio_igual or categoria == 'Respondió siempre igual':
+        return (
+            "El patrón de respuestas sugiere baja variabilidad, por lo que el perfil obtenido debe interpretarse con cautela. "
+            "Esto puede indicar que la prueba fue contestada con respuestas muy homogéneas o sin suficiente diferenciación entre intereses y aptitudes. "
+            "Se recomienda reaplicar la prueba en condiciones controladas, explicar nuevamente su propósito y posteriormente realizar una entrevista breve de orientación vocacional."
+        )
+
+    if nivel_alumno == 'Sin perfil':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante muestra una baja correspondencia entre su perfil vocacional y la carrera elegida, sin un ajuste claro dentro de {carrera_sel}. "
+                f"Además, el análisis de compatibilidad sugiere mayor afinidad hacia {destino_compatible}. "
+                f"Se recomienda repetir la prueba para confirmar estabilidad y, si el resultado persiste, canalizar a orientación vocacional para valorar un posible ingreso a una carrera más acorde con su perfil."
+            )
+        return (
+            f"El estudiante muestra una baja correspondencia entre su perfil vocacional y la carrera elegida, sin un ajuste claramente consolidado dentro de {carrera_sel}. "
+            f"Se recomienda repetir la prueba para confirmar el resultado y acompañar el proceso con orientación vocacional individual, antes de tomar decisiones académicas definitivas."
+        )
+
+    if nivel_alumno == 'Perfil en riesgo':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante presenta una coincidencia mínima entre su perfil vocacional y la carrera elegida, lo que puede traducirse en dificultades posteriores de adaptación a asignaturas propias de la formación profesional. "
+                f"El análisis compatible sugiere mejor ajuste hacia {destino_compatible}. "
+                f"Se recomienda seguimiento tutorial temprano, orientación vocacional y valorar, de manera informada, una posible transición hacia una carrera más acorde con su perfil."
+            )
+        return (
+            f"El estudiante presenta una coincidencia mínima entre su perfil vocacional y la carrera elegida, por lo que existe riesgo de dificultades de adaptación académica, especialmente en asignaturas propias de la carrera. "
+            f"Se recomienda seguimiento tutorial, fortalecimiento de hábitos de estudio y una revisión vocacional complementaria durante el primer semestre."
+        )
+
+    if nivel_alumno == 'Perfil en transición':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante muestra una congruencia vocacional funcional con la carrera elegida, aunque todavía en proceso de consolidación. "
+                f"Sin embargo, el análisis compatible también identifica afinidad con {destino_compatible}. "
+                f"Se recomienda mantener el acompañamiento académico y realizar una exploración vocacional complementaria, sin asumir de inmediato un cambio de carrera."
+            )
+        return (
+            f"El estudiante presenta una congruencia vocacional adecuada con la carrera elegida, aunque aún en consolidación. "
+            f"Se recomienda mantener un acompañamiento preventivo, reforzar hábitos académicos y dar seguimiento durante el primer semestre para favorecer la permanencia."
+        )
+
+    if nivel_alumno == 'Jóven promesa':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante presenta una alta congruencia entre su perfil vocacional y la carrera elegida, lo que favorece condiciones de buen ajuste académico. "
+                f"Aunque el análisis compatible detecta afinidad con {destino_compatible}, no se considera prioritario promover una transición, sino fortalecer su permanencia y potenciar su desarrollo dentro de la carrera actual."
+            )
+        return (
+            f"El estudiante presenta una alta congruencia entre su perfil vocacional y la carrera elegida, lo que sugiere condiciones favorables para un buen ajuste y permanencia académica. "
+            f"Se recomienda fortalecer su trayectoria, promover actividades de alto desempeño y considerar su incorporación a espacios de liderazgo, mentoría o desarrollo académico avanzado."
+        )
+
+    if categoria == 'Verde':
+        return (
+            "El perfil identificado coincide con la carrera elegida. Se recomienda mantener acompañamiento preventivo y reforzar estrategias de permanencia académica."
+        )
+
+    if categoria == 'Amarillo':
+        return (
+            "El perfil identificado no coincide plenamente con la carrera elegida. Se recomienda orientación vocacional, seguimiento tutorial y revisión temprana de ajuste académico."
+        )
+
+    return (
+        "El resultado obtenido sugiere la necesidad de una interpretación complementaria mediante entrevista de orientación y seguimiento académico inicial."
+    )
+
+# ============================================
+# 6) SELECCIÓN CARRERA → ESTUDIANTE
 # ============================================
 st.markdown("### 🧭 Selección de carrera y estudiante")
 
@@ -320,28 +395,9 @@ if not df_intensidad.empty and alumno.index[0] in df_intensidad.index:
     nivel_alumno = df_intensidad.loc[alumno.index[0], 'Nivel_Intensidad']
 
 # ============================================
-# 6) UBICACIÓN DEL ESTUDIANTE DENTRO DEL ANÁLISIS GENERAL
+# 7) UBICACIÓN DEL ESTUDIANTE DENTRO DEL ANÁLISIS GENERAL
 # ============================================
 st.markdown("## 📍 Ubicación del estudiante dentro del análisis general")
-
-st.markdown(
-    """
-En esta sección se muestra cómo se posiciona el estudiante dentro del análisis global de la escala CHASIDE. 
-La lectura se organiza en cuatro niveles:
-
-1. **Distribución general del estudiantado**: indica en qué tipo de perfil quedó clasificado el estudiante 
-   respecto al total de personas evaluadas.
-
-2. **Distribución por carrera y categoría**: muestra cómo se ubica el estudiante dentro del grupo de compañeros 
-   que eligieron la misma carrera.
-
-3. **Intensidad del perfil vocacional por carrera**: permite identificar si el estudiante presenta un ajuste vocacional 
-   sólido, intermedio o débil respecto a la carrera seleccionada.
-
-4. **Transición vocacional compatible por carrera**: explora si, con base en sus fortalezas CHASIDE, 
-   el estudiante parece mantenerse en la carrera elegida o mostrar mayor afinidad hacia otra opción compatible.
-"""
-)
 
 cat_map_largo = {
     'Verde': 'El perfil coincide con la carrera elegida',
@@ -353,24 +409,20 @@ cat_map_largo = {
 
 categoria_larga = cat_map_largo.get(al['Semáforo Vocacional'], al['Semáforo Vocacional'])
 
-# 1. Distribución general
 conteo_global = df['Semáforo Vocacional'].value_counts()
 n_global_cat = int(conteo_global.get(al['Semáforo Vocacional'], 0))
 pct_global_cat = (n_global_cat / len(df) * 100) if len(df) else 0
 
-# 2. Distribución por carrera
 conteo_carrera = d_carrera['Semáforo Vocacional'].value_counts()
 n_carrera_cat = int(conteo_carrera.get(al['Semáforo Vocacional'], 0))
 pct_carrera_cat = (n_carrera_cat / len(d_carrera) * 100) if len(d_carrera) else 0
 
-# 3. Transición
 destino_compatible = al['Destino_Compatible']
 if destino_compatible == carrera_sel:
     texto_transicion = "El perfil del estudiante se mantiene dentro de la carrera elegida."
 else:
     texto_transicion = f"El perfil del estudiante presenta mejor ajuste hacia la carrera **{destino_compatible}**."
 
-# 4. Intensidad
 if pd.notna(nivel_alumno):
     texto_intensidad = descripcion_intensidad.get(nivel_alumno, nivel_alumno)
 else:
@@ -391,36 +443,30 @@ la cual concentra **{n_global_cat} estudiantes ({pct_global_cat:.1f}%)** del tot
 """
 )
 
-st.markdown(
-    f"""
-- **Distribución general del estudiantado:**  
-  El estudiante fue clasificado en la categoría **{categoria_larga}**. 
-  Esta categoría concentra **{n_global_cat} estudiantes ({pct_global_cat:.1f}%)** del total evaluado, 
-  lo que permite ubicar su perfil dentro del panorama general de respuestas.
+# ============================================
+# 8) CONCLUSIÓN Y RECOMENDACIÓN
+# ============================================
+st.markdown("## 📝 Conclusión y recomendación")
 
-- **Distribución por carrera y categoría:**  
-  Dentro de **{carrera_sel}**, el estudiante también se ubica en la categoría **{categoria_larga}**. 
-  En esta carrera, dicho grupo está conformado por **{n_carrera_cat} estudiantes ({pct_carrera_cat:.1f}%)**, 
-  por lo que su resultado puede interpretarse en comparación con quienes eligieron la misma formación profesional.
-
-- **Intensidad del perfil vocacional por carrera:**  
-  El estudiante fue clasificado como **{nivel_alumno if pd.notna(nivel_alumno) else 'No disponible'}**.  
-  {texto_intensidad}
-
-- **Transición vocacional compatible por carrera:**  
-  {texto_transicion}
-"""
+texto_conclusion = construir_conclusion_recomendacion(
+    al=al,
+    carrera_sel=carrera_sel,
+    destino_compatible=destino_compatible,
+    nivel_alumno=nivel_alumno
 )
 
+st.markdown(texto_conclusion)
+
 # ============================================
-# 7) CONSTRUIR PDF
+# 9) PDF
 # ============================================
 def build_pdf_report(
     estudiante: str,
     carrera: str,
     categoria: str,
     intensidad: str,
-    texto_ubicacion: str
+    texto_ubicacion: str,
+    conclusion_txt: str
 ) -> bytes:
     buffer = io.BytesIO()
 
@@ -476,6 +522,9 @@ def build_pdf_report(
         if linea.strip():
             story.append(Paragraph(linea.strip(), styles['BodySmall']))
 
+    story.append(Paragraph("Conclusión y recomendación", styles['HeadingTeal']))
+    story.append(Paragraph(conclusion_txt, styles['BodySmall']))
+
     doc.build(story)
     pdf = buffer.getvalue()
     buffer.close()
@@ -497,12 +546,10 @@ pdf_bytes = build_pdf_report(
     carrera=carrera_sel,
     categoria=categoria_larga,
     intensidad=nivel_alumno if pd.notna(nivel_alumno) else "No disponible",
-    texto_ubicacion=texto_ubicacion_pdf
+    texto_ubicacion=texto_ubicacion_pdf,
+    conclusion_txt=texto_conclusion
 )
 
-# ============================================
-# 8) DESCARGA PDF
-# ============================================
 st.download_button(
     label="⬇️ Descargar perfil identificado en PDF",
     data=pdf_bytes,
@@ -510,107 +557,3 @@ st.download_button(
     mime="application/pdf",
     use_container_width=True
 )
-
-def construir_conclusion_recomendacion(al, carrera_sel, destino_compatible, nivel_alumno):
-    """
-    Genera una conclusión y recomendación individual con base en:
-    - consistencia de respuesta
-    - perfil identificado
-    - intensidad vocacional
-    - transición compatible
-    """
-    categoria = al['Semáforo Vocacional']
-    respondio_igual = bool(al.get('Respondio_Siempre_Igual', False))
-
-    # Caso 1: posible respuesta uniforme / azar
-    if respondio_igual or categoria == 'Respondió siempre igual':
-        return (
-            "El patrón de respuestas sugiere baja variabilidad, por lo que el perfil obtenido debe "
-            "interpretarse con cautela. Esto puede indicar que la prueba fue contestada con respuestas "
-            "muy homogéneas o sin suficiente diferenciación entre intereses y aptitudes. "
-            "Se recomienda **reaplicar la prueba en condiciones controladas**, explicar nuevamente su propósito "
-            "y, posteriormente, realizar una entrevista breve de orientación vocacional."
-        )
-
-    # Caso 2: Sin perfil
-    if nivel_alumno == 'Sin perfil':
-        if destino_compatible != carrera_sel:
-            return (
-                f"El estudiante muestra una **baja correspondencia entre su perfil vocacional y la carrera elegida**, "
-                f"sin un ajuste claro dentro de **{carrera_sel}**. Además, el análisis de compatibilidad sugiere mayor "
-                f"afinidad hacia **{destino_compatible}**. Se recomienda **repetir la prueba para confirmar estabilidad** "
-                f"y, si el resultado persiste, **canalizar a orientación vocacional** para valorar un posible ingreso a "
-                f"una carrera más acorde con su perfil."
-            )
-        return (
-            f"El estudiante muestra una **baja correspondencia entre su perfil vocacional y la carrera elegida**, "
-            f"sin un ajuste claramente consolidado dentro de **{carrera_sel}**. Se recomienda **repetir la prueba** "
-            f"para confirmar el resultado y acompañar el proceso con **orientación vocacional individual**, antes de "
-            f"tomar decisiones académicas definitivas."
-        )
-
-    # Caso 3: Perfil en riesgo
-    if nivel_alumno == 'Perfil en riesgo':
-        if destino_compatible != carrera_sel:
-            return (
-                f"El estudiante presenta una **coincidencia mínima entre su perfil vocacional y la carrera elegida**, "
-                f"lo que puede traducirse en dificultades posteriores de adaptación a asignaturas propias de la formación profesional. "
-                f"El análisis compatible sugiere mejor ajuste hacia **{destino_compatible}**. Se recomienda "
-                f"**seguimiento tutorial temprano**, **orientación vocacional** y valorar, de manera informada, "
-                f"una posible transición hacia una carrera más acorde con su perfil."
-            )
-        return (
-            f"El estudiante presenta una **coincidencia mínima entre su perfil vocacional y la carrera elegida**, "
-            f"por lo que existe riesgo de dificultades de adaptación académica, especialmente en asignaturas propias de la carrera. "
-            f"Se recomienda **seguimiento tutorial**, fortalecimiento de hábitos de estudio y una revisión vocacional "
-            f"complementaria durante el primer semestre."
-        )
-
-    # Caso 4: Perfil en transición
-    if nivel_alumno == 'Perfil en transición':
-        if destino_compatible != carrera_sel:
-            return (
-                f"El estudiante muestra una **congruencia vocacional funcional** con la carrera elegida, aunque todavía en proceso de consolidación. "
-                f"Sin embargo, el análisis compatible también identifica afinidad con **{destino_compatible}**. "
-                f"Se recomienda mantener el acompañamiento académico y realizar una **exploración vocacional complementaria**, "
-                f"sin asumir de inmediato un cambio de carrera."
-            )
-        return (
-            f"El estudiante presenta una **congruencia vocacional adecuada** con la carrera elegida, aunque aún en consolidación. "
-            f"Se recomienda mantener un **acompañamiento preventivo**, reforzar hábitos académicos y dar seguimiento "
-            f"durante el primer semestre para favorecer la permanencia."
-        )
-
-    # Caso 5: Jóven promesa
-    if nivel_alumno == 'Jóven promesa':
-        if destino_compatible != carrera_sel:
-            return (
-                f"El estudiante presenta una **alta congruencia entre su perfil vocacional y la carrera elegida**, "
-                f"lo que favorece condiciones de buen ajuste académico. Aunque el análisis compatible detecta afinidad con "
-                f"**{destino_compatible}**, no se considera prioritario promover una transición, sino **fortalecer su permanencia** "
-                f"y potenciar su desarrollo dentro de la carrera actual."
-            )
-        return (
-            f"El estudiante presenta una **alta congruencia entre su perfil vocacional y la carrera elegida**, "
-            f"lo que sugiere condiciones favorables para un buen ajuste y permanencia académica. Se recomienda "
-            f"**fortalecer su trayectoria**, promover actividades de alto desempeño y considerar su incorporación a "
-            f"espacios de liderazgo, mentoría o desarrollo académico avanzado."
-        )
-
-    # Caso 6: fallback por categoría general
-    if categoria == 'Verde':
-        return (
-            "El perfil identificado coincide con la carrera elegida. Se recomienda mantener acompañamiento preventivo "
-            "y reforzar estrategias de permanencia académica."
-        )
-
-    if categoria == 'Amarillo':
-        return (
-            "El perfil identificado no coincide plenamente con la carrera elegida. Se recomienda orientación vocacional, "
-            "seguimiento tutorial y revisión temprana de ajuste académico."
-        )
-
-    return (
-        "El resultado obtenido sugiere la necesidad de una interpretación complementaria mediante entrevista de orientación "
-        "y seguimiento académico inicial."
-    )
