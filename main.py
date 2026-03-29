@@ -510,3 +510,107 @@ st.download_button(
     mime="application/pdf",
     use_container_width=True
 )
+
+def construir_conclusion_recomendacion(al, carrera_sel, destino_compatible, nivel_alumno):
+    """
+    Genera una conclusión y recomendación individual con base en:
+    - consistencia de respuesta
+    - perfil identificado
+    - intensidad vocacional
+    - transición compatible
+    """
+    categoria = al['Semáforo Vocacional']
+    respondio_igual = bool(al.get('Respondio_Siempre_Igual', False))
+
+    # Caso 1: posible respuesta uniforme / azar
+    if respondio_igual or categoria == 'Respondió siempre igual':
+        return (
+            "El patrón de respuestas sugiere baja variabilidad, por lo que el perfil obtenido debe "
+            "interpretarse con cautela. Esto puede indicar que la prueba fue contestada con respuestas "
+            "muy homogéneas o sin suficiente diferenciación entre intereses y aptitudes. "
+            "Se recomienda **reaplicar la prueba en condiciones controladas**, explicar nuevamente su propósito "
+            "y, posteriormente, realizar una entrevista breve de orientación vocacional."
+        )
+
+    # Caso 2: Sin perfil
+    if nivel_alumno == 'Sin perfil':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante muestra una **baja correspondencia entre su perfil vocacional y la carrera elegida**, "
+                f"sin un ajuste claro dentro de **{carrera_sel}**. Además, el análisis de compatibilidad sugiere mayor "
+                f"afinidad hacia **{destino_compatible}**. Se recomienda **repetir la prueba para confirmar estabilidad** "
+                f"y, si el resultado persiste, **canalizar a orientación vocacional** para valorar un posible ingreso a "
+                f"una carrera más acorde con su perfil."
+            )
+        return (
+            f"El estudiante muestra una **baja correspondencia entre su perfil vocacional y la carrera elegida**, "
+            f"sin un ajuste claramente consolidado dentro de **{carrera_sel}**. Se recomienda **repetir la prueba** "
+            f"para confirmar el resultado y acompañar el proceso con **orientación vocacional individual**, antes de "
+            f"tomar decisiones académicas definitivas."
+        )
+
+    # Caso 3: Perfil en riesgo
+    if nivel_alumno == 'Perfil en riesgo':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante presenta una **coincidencia mínima entre su perfil vocacional y la carrera elegida**, "
+                f"lo que puede traducirse en dificultades posteriores de adaptación a asignaturas propias de la formación profesional. "
+                f"El análisis compatible sugiere mejor ajuste hacia **{destino_compatible}**. Se recomienda "
+                f"**seguimiento tutorial temprano**, **orientación vocacional** y valorar, de manera informada, "
+                f"una posible transición hacia una carrera más acorde con su perfil."
+            )
+        return (
+            f"El estudiante presenta una **coincidencia mínima entre su perfil vocacional y la carrera elegida**, "
+            f"por lo que existe riesgo de dificultades de adaptación académica, especialmente en asignaturas propias de la carrera. "
+            f"Se recomienda **seguimiento tutorial**, fortalecimiento de hábitos de estudio y una revisión vocacional "
+            f"complementaria durante el primer semestre."
+        )
+
+    # Caso 4: Perfil en transición
+    if nivel_alumno == 'Perfil en transición':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante muestra una **congruencia vocacional funcional** con la carrera elegida, aunque todavía en proceso de consolidación. "
+                f"Sin embargo, el análisis compatible también identifica afinidad con **{destino_compatible}**. "
+                f"Se recomienda mantener el acompañamiento académico y realizar una **exploración vocacional complementaria**, "
+                f"sin asumir de inmediato un cambio de carrera."
+            )
+        return (
+            f"El estudiante presenta una **congruencia vocacional adecuada** con la carrera elegida, aunque aún en consolidación. "
+            f"Se recomienda mantener un **acompañamiento preventivo**, reforzar hábitos académicos y dar seguimiento "
+            f"durante el primer semestre para favorecer la permanencia."
+        )
+
+    # Caso 5: Jóven promesa
+    if nivel_alumno == 'Jóven promesa':
+        if destino_compatible != carrera_sel:
+            return (
+                f"El estudiante presenta una **alta congruencia entre su perfil vocacional y la carrera elegida**, "
+                f"lo que favorece condiciones de buen ajuste académico. Aunque el análisis compatible detecta afinidad con "
+                f"**{destino_compatible}**, no se considera prioritario promover una transición, sino **fortalecer su permanencia** "
+                f"y potenciar su desarrollo dentro de la carrera actual."
+            )
+        return (
+            f"El estudiante presenta una **alta congruencia entre su perfil vocacional y la carrera elegida**, "
+            f"lo que sugiere condiciones favorables para un buen ajuste y permanencia académica. Se recomienda "
+            f"**fortalecer su trayectoria**, promover actividades de alto desempeño y considerar su incorporación a "
+            f"espacios de liderazgo, mentoría o desarrollo académico avanzado."
+        )
+
+    # Caso 6: fallback por categoría general
+    if categoria == 'Verde':
+        return (
+            "El perfil identificado coincide con la carrera elegida. Se recomienda mantener acompañamiento preventivo "
+            "y reforzar estrategias de permanencia académica."
+        )
+
+    if categoria == 'Amarillo':
+        return (
+            "El perfil identificado no coincide plenamente con la carrera elegida. Se recomienda orientación vocacional, "
+            "seguimiento tutorial y revisión temprana de ajuste académico."
+        )
+
+    return (
+        "El resultado obtenido sugiere la necesidad de una interpretación complementaria mediante entrevista de orientación "
+        "y seguimiento académico inicial."
+    )
