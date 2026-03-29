@@ -355,14 +355,22 @@ def calcular_prioridades_carrera(df_base, carrera_sel):
     if riesgo.empty or promesa.empty:
         return pd.DataFrame()
 
-    prom_riesgo = riesgo[areas].mean()
-    prom_promesa = promesa[areas].mean()
+    total_cols = [f"TOTAL_{a}" for a in areas]
+
+    prom_riesgo = riesgo[total_cols].mean()
+    prom_promesa = promesa[total_cols].mean()
 
     resultados = []
     for a in areas:
-        meta = prom_promesa[a]
-        medido = prom_riesgo[a]
-        error_pct = 0 if meta == 0 else max(((meta - medido) / meta) * 100, 0)
+        meta = prom_promesa[f"TOTAL_{a}"]
+        medido = prom_riesgo[f"TOTAL_{a}"]
+
+        if meta == 0:
+            error_pct = 0
+        else:
+            error_pct = ((meta - medido) / meta) * 100
+
+        error_pct = max(error_pct, 0)
 
         resultados.append({
             'Letra': a,
@@ -373,8 +381,8 @@ def calcular_prioridades_carrera(df_base, carrera_sel):
         })
 
     df_plot = pd.DataFrame(resultados).sort_values('Error_Porcentual', ascending=False).reset_index(drop=True)
-    total_error = df_plot['Error_Porcentual'].sum()
 
+    total_error = df_plot['Error_Porcentual'].sum()
     if total_error == 0:
         df_plot['Porcentaje_Relativo'] = 0.0
         df_plot['Acumulado'] = 0.0
@@ -390,7 +398,7 @@ def calcular_prioridades_carrera(df_base, carrera_sel):
             acumulado_tmp = df_plot.at[idx, 'Acumulado']
 
     return df_plot
-
+    
 # ============================================
 # 7) SELECCIÓN CARRERA → ESTUDIANTE
 # ============================================
