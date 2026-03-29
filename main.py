@@ -1,10 +1,9 @@
 # ============================================
 # MÓDULO 3 · INFORMACIÓN PARTICULAR DEL ESTUDIANTADO
-# Resumen individual + resumen del módulo 2 + acciones recomendadas + PDF
+# Versión depurada: URL + selección + ubicación + PDF
 # ============================================
 
 import io
-import textwrap
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -14,9 +13,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.units import cm
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
-)
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
 # -----------------------------------
 # CONFIG STREAMLIT
@@ -24,8 +21,8 @@ from reportlab.platypus import (
 st.set_page_config(page_title="Información particular • CHASIDE", layout="wide")
 st.title("📘 Información particular del estudiantado – CHASIDE")
 st.caption(
-    "Seleccione una carrera y un estudiante para consultar el resumen individual, "
-    "las recomendaciones de acción y descargar el reporte en PDF."
+    "Seleccione una carrera y un estudiante para consultar su ubicación dentro del análisis general "
+    "y descargar el reporte individual en PDF."
 )
 
 # ============================================
@@ -61,7 +58,8 @@ if faltantes:
 # Sí/No → 1/0
 df_items = (
     df[columnas_items]
-      .astype(str).apply(lambda col: col.str.strip().str.lower())
+      .astype(str)
+      .apply(lambda col: col.str.strip().str.lower())
       .replace({
           'sí': 1, 'si': 1, 's': 1, '1': 1, 'true': 1, 'verdadero': 1, 'x': 1,
           'no': 0, 'n': 0, '0': 0, 'false': 0, 'falso': 0, '': 0, 'nan': 0
@@ -109,7 +107,10 @@ for a in areas:
 
 peso_intereses, peso_aptitudes = 0.8, 0.2
 for a in areas:
-    df[f'PUNTAJE_COMBINADO_{a}'] = df[f'INTERES_{a}'] * peso_intereses + df[f'APTITUD_{a}'] * peso_aptitudes
+    df[f'PUNTAJE_COMBINADO_{a}'] = (
+        df[f'INTERES_{a}'] * peso_intereses +
+        df[f'APTITUD_{a}'] * peso_aptitudes
+    )
     df[f'TOTAL_{a}'] = df[f'INTERES_{a}'] + df[f'APTITUD_{a}']
 
 df['Area_Fuerte_Ponderada'] = df.apply(
@@ -190,7 +191,7 @@ df['Carrera_Corta'] = (
 )
 
 # ============================================
-# 3) INTENSIDAD VOCACIONAL (módulo 2 resumido)
+# 3) INTENSIDAD VOCACIONAL
 # ============================================
 df_intensidad = df[df['Semáforo Vocacional'].isin(['Verde', 'Amarillo'])].copy()
 
@@ -231,8 +232,15 @@ if not df_intensidad.empty:
         .copy()
     )
 
+descripcion_intensidad = {
+    "Sin perfil": "Estudiante cuya elección de carrera no muestra correspondencia con su perfil vocacional. Se recomienda reevaluación vocacional y posible cambio de carrera.",
+    "Perfil en riesgo": "Estudiante cuyo perfil vocacional presenta una coincidencia mínima con la carrera elegida. Existe alto riesgo de dificultades en asignaturas específicas de la carrera.",
+    "Perfil en transición": "Estudiante cuya elección profesional y perfil vocacional presentan congruencia, aunque aún en proceso de consolidación.",
+    "Jóven promesa": "Estudiante con alta congruencia entre su perfil vocacional y la carrera elegida, con condiciones favorables para un desempeño sólido."
+}
+
 # ============================================
-# 4) DESTINO VOCACIONAL COMPATIBLE (módulo 2 resumido)
+# 4) DESTINO VOCACIONAL COMPATIBLE
 # ============================================
 def letras_carrera(carrera):
     perfil = perfil_carreras.get(str(carrera).strip(), {})
@@ -280,127 +288,7 @@ df['Destino_Compatible'] = df.apply(
 )
 
 # ============================================
-# 5) ESTRATEGIAS CHASIDE
-# ============================================
-estrategias_chaside = {
-    "C": {
-        "area": "Administrativo",
-        "estrategia": (
-            "Fortalecer actividades de organización, planeación, seguimiento de instrucciones, "
-            "gestión del tiempo y resolución estructurada de problemas."
-        )
-    },
-    "H": {
-        "area": "Humanidades y Sociales",
-        "estrategia": (
-            "Promover comunicación oral y escrita, argumentación, comprensión de textos, "
-            "análisis de casos y trabajo colaborativo."
-        )
-    },
-    "A": {
-        "area": "Artístico",
-        "estrategia": (
-            "Incorporar ejercicios de creatividad, diseño, visualización de ideas, "
-            "prototipos y solución innovadora de problemas."
-        )
-    },
-    "S": {
-        "area": "Ciencias de la Salud",
-        "estrategia": (
-            "Favorecer observación, precisión, estudio de casos, empatía profesional "
-            "y actividades con orientación al servicio."
-        )
-    },
-    "I": {
-        "area": "Enseñanzas Técnicas",
-        "estrategia": (
-            "Reforzar pensamiento lógico, modelado, cálculo, uso de herramientas, "
-            "prácticas guiadas y resolución técnica de problemas."
-        )
-    },
-    "D": {
-        "area": "Defensa y Seguridad",
-        "estrategia": (
-            "Impulsar liderazgo, disciplina, trabajo en equipo, responsabilidad "
-            "y toma de decisiones en contextos estructurados."
-        )
-    },
-    "E": {
-        "area": "Ciencias Experimentales",
-        "estrategia": (
-            "Estimular observación sistemática, experimentación, interpretación de datos, "
-            "método y pensamiento crítico."
-        )
-    }
-}
-
-descripcion_intensidad = {
-    "Sin perfil": "Estudiante cuya elección de carrera no muestra correspondencia con su perfil vocacional. Se recomienda reevaluación vocacional y posible cambio de carrera.",
-    "Perfil en riesgo": "Estudiante cuyo perfil vocacional presenta una coincidencia mínima con la carrera elegida. Existe alto riesgo de dificultades en asignaturas específicas de la carrera.",
-    "Perfil en transición": "Estudiante cuya elección profesional y perfil vocacional presentan congruencia, aunque aún en proceso de consolidación.",
-    "Jóven promesa": "Estudiante con alta congruencia entre su perfil vocacional y la carrera elegida, con condiciones favorables para un desempeño sólido."
-}
-
-# ============================================
-# 6) RESUMEN DE PRIORIDADES CHASIDE POR CARRERA
-# ============================================
-def calcular_prioridades_carrera(df_base, carrera_sel):
-    if df_intensidad.empty:
-        return pd.DataFrame()
-
-    sub = df_intensidad[df_intensidad[columna_carrera] == carrera_sel].copy()
-    riesgo = sub[sub['Nivel_Intensidad'] == 'Perfil en riesgo'].copy()
-    promesa = sub[sub['Nivel_Intensidad'] == 'Jóven promesa'].copy()
-
-    if riesgo.empty or promesa.empty:
-        return pd.DataFrame()
-
-    total_cols = [f"TOTAL_{a}" for a in areas]
-
-    prom_riesgo = riesgo[total_cols].mean()
-    prom_promesa = promesa[total_cols].mean()
-
-    resultados = []
-    for a in areas:
-        meta = prom_promesa[f"TOTAL_{a}"]
-        medido = prom_riesgo[f"TOTAL_{a}"]
-
-        if meta == 0:
-            error_pct = 0
-        else:
-            error_pct = ((meta - medido) / meta) * 100
-
-        error_pct = max(error_pct, 0)
-
-        resultados.append({
-            'Letra': a,
-            'Área': estrategias_chaside[a]['area'],
-            'Meta': float(meta),
-            'Medido': float(medido),
-            'Error_Porcentual': float(error_pct)
-        })
-
-    df_plot = pd.DataFrame(resultados).sort_values('Error_Porcentual', ascending=False).reset_index(drop=True)
-
-    total_error = df_plot['Error_Porcentual'].sum()
-    if total_error == 0:
-        df_plot['Porcentaje_Relativo'] = 0.0
-        df_plot['Acumulado'] = 0.0
-    else:
-        df_plot['Porcentaje_Relativo'] = df_plot['Error_Porcentual'] / total_error * 100
-        df_plot['Acumulado'] = df_plot['Porcentaje_Relativo'].cumsum()
-
-    df_plot['Dentro_80'] = False
-    acumulado_tmp = 0.0
-    for idx in df_plot.index:
-        if acumulado_tmp < 80:
-            df_plot.at[idx, 'Dentro_80'] = True
-            acumulado_tmp = df_plot.at[idx, 'Acumulado']
-
-    return df_plot
-    
-# ============================================
-# 7) SELECCIÓN CARRERA → ESTUDIANTE
+# 5) SELECCIÓN CARRERA → ESTUDIANTE
 # ============================================
 st.markdown("### 🧭 Selección de carrera y estudiante")
 
@@ -427,15 +315,14 @@ if alumno.empty:
 
 al = alumno.iloc[0]
 
-# Nivel intensidad del alumno
 nivel_alumno = None
 if not df_intensidad.empty and alumno.index[0] in df_intensidad.index:
     nivel_alumno = df_intensidad.loc[alumno.index[0], 'Nivel_Intensidad']
 
 # ============================================
-# 8) REPORTE INDIVIDUAL
+# 6) UBICACIÓN DEL ESTUDIANTE DENTRO DEL ANÁLISIS GENERAL
 # ============================================
-st.markdown("## 🧾 Resumen individual")
+st.markdown("## 📍 Ubicación del estudiante dentro del análisis general")
 
 cat_map_largo = {
     'Verde': 'El perfil coincide con la carrera elegida',
@@ -445,221 +332,58 @@ cat_map_largo = {
     'Respondió siempre igual': 'Respondió siempre igual'
 }
 
-categoria = al['Semáforo Vocacional']
-categoria_larga = cat_map_largo.get(categoria, categoria)
-cat_color = {
-    "Verde": "#22c55e",
-    "Amarillo": "#f59e0b",
-    "Rojo": "#6b7280",
-    "Sin sugerencia": "#6b7280",
-    "Respondió siempre igual": "#ef4444"
-}.get(categoria, "#64748b")
+categoria_larga = cat_map_largo.get(al['Semáforo Vocacional'], al['Semáforo Vocacional'])
 
-cat_count_carrera = int((d_carrera['Semáforo Vocacional'] == categoria).sum())
-cat_pct_carrera = (cat_count_carrera / len(d_carrera) * 100) if len(d_carrera) else 0
+# 1. Distribución general
+conteo_global = df['Semáforo Vocacional'].value_counts()
+n_global_cat = int(conteo_global.get(al['Semáforo Vocacional'], 0))
+pct_global_cat = (n_global_cat / len(df) * 100) if len(df) else 0
 
-c1, c2, c3 = st.columns(3)
-with c1:
-    st.markdown(f"**Estudiante:** {est_sel}")
-    st.markdown(f"**Carrera:** {carrera_sel}")
-with c2:
-    st.markdown(f"**Perfil identificado:** <span style='color:{cat_color}; font-weight:bold'>{categoria_larga}</span>", unsafe_allow_html=True)
-    st.markdown(f"**Área fuerte CHASIDE:** {al['Area_Fuerte_Ponderada']}")
-with c3:
-    st.markdown(f"**Estudiantes con este perfil en la carrera:** {cat_count_carrera} ({cat_pct_carrera:.1f}%)")
-    st.markdown(f"**Intensidad vocacional:** {nivel_alumno if pd.notna(nivel_alumno) else 'No disponible'}")
-
-st.divider()
-
-# ============================================
-# 9) RESUMEN DEL MÓDULO 2
-# ============================================
-st.markdown("## 📌 Resumen relacionado con el módulo 2")
-
-# Distribución carrera
+# 2. Distribución por carrera
 conteo_carrera = d_carrera['Semáforo Vocacional'].value_counts()
-verde_n = int(conteo_carrera.get('Verde', 0))
-amarillo_n = int(conteo_carrera.get('Amarillo', 0))
-rojo_n = int(conteo_carrera.get('Rojo', 0))
-sinsug_n = int(conteo_carrera.get('Sin sugerencia', 0))
-azar_n = int(conteo_carrera.get('Respondió siempre igual', 0))
+n_carrera_cat = int(conteo_carrera.get(al['Semáforo Vocacional'], 0))
+pct_carrera_cat = (n_carrera_cat / len(d_carrera) * 100) if len(d_carrera) else 0
+
+# 3. Transición
+destino_compatible = al['Destino_Compatible']
+if destino_compatible == carrera_sel:
+    texto_transicion = "El perfil del estudiante se mantiene dentro de la carrera elegida."
+else:
+    texto_transicion = f"El perfil del estudiante presenta mejor ajuste hacia la carrera **{destino_compatible}**."
+
+# 4. Intensidad
+if pd.notna(nivel_alumno):
+    texto_intensidad = descripcion_intensidad.get(nivel_alumno, nivel_alumno)
+else:
+    texto_intensidad = "No fue posible determinar el nivel de intensidad vocacional para este estudiante."
 
 st.markdown(
     f"""
-En **{carrera_sel}**, la distribución general observada fue la siguiente:
-- **Perfil coincide con la carrera elegida:** {verde_n}
-- **Perfil NO va acorde con la carrera elegida:** {amarillo_n}
-- **No se observa un perfil prioritario:** {rojo_n + sinsug_n}
-- **Respondió siempre igual:** {azar_n}
+- **Distribución general del estudiantado:** el estudiante pertenece a la categoría **{categoria_larga}**, 
+la cual concentra **{n_global_cat} estudiantes ({pct_global_cat:.1f}%)** del total evaluado.
+
+- **Distribución por carrera y categoría:** dentro de **{carrera_sel}**, el estudiante se ubica en la categoría 
+**{categoria_larga}**, grupo conformado por **{n_carrera_cat} estudiantes ({pct_carrera_cat:.1f}%)** de su carrera.
+
+- **Intensidad del perfil vocacional por carrera:** el estudiante fue clasificado como **{nivel_alumno if pd.notna(nivel_alumno) else 'No disponible'}**.  
+  {texto_intensidad}
+
+- **Transición vocacional compatible por carrera:** {texto_transicion}
 """
 )
 
-# Transición compatible individual
-destino_compatible = al['Destino_Compatible']
-if destino_compatible == carrera_sel:
-    st.markdown("**Transición vocacional compatible:** el perfil del estudiante se mantiene dentro de la carrera elegida.")
-else:
-    st.markdown(f"**Transición vocacional compatible:** el perfil del estudiante presenta mayor ajuste hacia **{destino_compatible}**.")
-
-# Prioridades de la carrera
-df_prioridades = calcular_prioridades_carrera(df, carrera_sel)
-
-if df_prioridades.empty:
-    st.info("No fue posible calcular prioridades CHASIDE de la carrera bajo el criterio Perfil en riesgo vs Jóven promesa.")
-else:
-    criticas = df_prioridades[df_prioridades['Dentro_80']].copy()
-    letras_criticas = criticas['Letra'].tolist()
-
-    st.markdown(
-        f"**Prioridades CHASIDE de la carrera (criterio 80-20):** {', '.join(letras_criticas)}"
-    )
-
-st.divider()
-
 # ============================================
-# 10) FORTALEZAS INDIVIDUALES Y ÁREAS A REFORZAR
-# ============================================
-st.markdown("## ✅ Fortalezas y áreas a reforzar")
-
-ref_cols = [f'TOTAL_{a}' for a in areas]
-mask_carrera = df[columna_carrera] == carrera_sel
-mask_verde = df['Semáforo Vocacional'] == 'Verde'
-
-if df.loc[mask_carrera & mask_verde, ref_cols].empty:
-    ref_df = df.loc[mask_carrera, ref_cols]
-    referencia = "Promedio general de la carrera"
-else:
-    ref_df = df.loc[mask_carrera & mask_verde, ref_cols]
-    referencia = "Promedio del grupo con perfil congruente"
-
-grupo_vec = ref_df.mean().astype(float)
-alumno_vec = df.loc[alumno_mask, ref_cols].iloc[0].astype(float)
-
-df_comp = pd.DataFrame({
-    "Letra": areas,
-    "Alumno": [alumno_vec[f"TOTAL_{a}"] for a in areas],
-    "Referencia": [grupo_vec[f"TOTAL_{a}"] for a in areas],
-})
-df_comp["Delta"] = df_comp["Alumno"] - df_comp["Referencia"]
-
-fortalezas = df_comp[df_comp["Delta"] > 0].sort_values("Delta", ascending=False)
-debilidades = df_comp[df_comp["Delta"] < 0].copy()
-debilidades["Brecha"] = debilidades["Delta"].abs()
-debilidades = debilidades.sort_values("Brecha", ascending=False)
-
-st.markdown(f"**Referencia utilizada:** {referencia}")
-
-colf, cold = st.columns(2)
-
-with colf:
-    st.markdown("### Fortalezas destacadas")
-    if fortalezas.empty:
-        st.info("No se observaron letras por encima de la referencia.")
-    else:
-        for _, row in fortalezas.iterrows():
-            letra = row['Letra']
-            st.markdown(
-                f"- **{letra} ({estrategias_chaside[letra]['area']})**: "
-                f"{row['Delta']:.2f} puntos por arriba de la referencia."
-            )
-
-with cold:
-    st.markdown("### Áreas por reforzar")
-    if debilidades.empty:
-        st.info("No se observaron brechas por debajo de la referencia.")
-    else:
-        for _, row in debilidades.head(3).iterrows():
-            letra = row['Letra']
-            st.markdown(
-                f"- **{letra} ({estrategias_chaside[letra]['area']})**: "
-                f"{row['Brecha']:.2f} puntos por debajo de la referencia."
-            )
-
-st.divider()
-
-# ============================================
-# 11) ACCIONES RECOMENDADAS
-# ============================================
-st.markdown("## 🛠️ Acciones recomendadas")
-
-acciones = []
-
-# Acción por categoría
-if categoria == 'Respondió siempre igual':
-    acciones.append(
-        "Reaplicar el instrumento CHASIDE en condiciones controladas, ya que las respuestas actuales no permiten una interpretación vocacional confiable."
-    )
-elif categoria == 'Rojo' or categoria == 'Sin sugerencia':
-    acciones.append(
-        "Programar entrevista de orientación vocacional individual para explorar intereses, expectativas de carrera y alternativas académicas compatibles."
-    )
-elif categoria == 'Amarillo':
-    acciones.append(
-        "Dar seguimiento tutorial focalizado durante el primer semestre para prevenir dificultades de ajuste vocacional y académico."
-    )
-elif categoria == 'Verde':
-    acciones.append(
-        "Mantener acompañamiento preventivo y reforzar hábitos de estudio y permanencia, especialmente en el primer semestre."
-    )
-
-# Acción por intensidad
-if pd.notna(nivel_alumno):
-    acciones.append(descripcion_intensidad.get(nivel_alumno, ""))
-
-# Acción por destino compatible
-if destino_compatible != carrera_sel:
-    acciones.append(
-        f"Explorar la compatibilidad del perfil con **{destino_compatible}**, ya que el análisis de ajuste muestra mejor correspondencia vocacional hacia esa opción."
-    )
-
-# Acción por debilidades individuales
-if not debilidades.empty:
-    for _, row in debilidades.head(2).iterrows():
-        letra = row['Letra']
-        acciones.append(
-            f"Trabajar el área **{letra} ({estrategias_chaside[letra]['area']})**. Estrategia sugerida: {estrategias_chaside[letra]['estrategia']}"
-        )
-
-# Acción por prioridades de carrera
-if not df_prioridades.empty:
-    criticas = df_prioridades[df_prioridades['Dentro_80']].copy()
-    for _, row in criticas.head(2).iterrows():
-        letra = row['Letra']
-        acciones.append(
-            f"Como acción institucional para **{carrera_sel}**, conviene reforzar la dimensión **{letra} ({row['Área']})**, ya que forma parte del 80% de la brecha prioritaria de la carrera."
-        )
-
-# Limpieza de duplicados preservando orden
-acciones_finales = []
-vistos = set()
-for a in acciones:
-    a_clean = a.strip()
-    if a_clean and a_clean not in vistos:
-        acciones_finales.append(a_clean)
-        vistos.add(a_clean)
-
-for i, accion in enumerate(acciones_finales, start=1):
-    st.markdown(f"**{i}.** {accion}")
-
-st.divider()
-
-# ============================================
-# 12) RESUMEN EN PDF
+# 7) CONSTRUIR PDF
 # ============================================
 def build_pdf_report(
     estudiante: str,
     carrera: str,
-    categoria_larga: str,
+    categoria: str,
     intensidad: str,
-    area_fuerte: str,
-    destino: str,
-    resumen_carrera_txt: str,
-    fortalezas_txt: list[str],
-    debilidades_txt: list[str],
-    acciones_txt: list[str],
-    prioridades_txt: list[str]
+    texto_ubicacion: str
 ) -> bytes:
     buffer = io.BytesIO()
+
     doc = SimpleDocTemplate(
         buffer,
         pagesize=letter,
@@ -700,154 +424,49 @@ def build_pdf_report(
     ))
 
     story = []
-
     story.append(Paragraph("Reporte individual CHASIDE", styles['TitleBlue']))
     story.append(Paragraph(f"<b>Estudiante:</b> {estudiante}", styles['BodySmall']))
     story.append(Paragraph(f"<b>Carrera:</b> {carrera}", styles['BodySmall']))
-    story.append(Paragraph(f"<b>Perfil identificado:</b> {categoria_larga}", styles['BodySmall']))
+    story.append(Paragraph(f"<b>Perfil identificado:</b> {categoria}", styles['BodySmall']))
     story.append(Paragraph(f"<b>Intensidad vocacional:</b> {intensidad}", styles['BodySmall']))
-    story.append(Paragraph(f"<b>Área fuerte CHASIDE:</b> {area_fuerte}", styles['BodySmall']))
-    story.append(Paragraph(f"<b>Destino vocacional compatible:</b> {destino}", styles['BodySmall']))
     story.append(Spacer(1, 8))
 
-    story.append(Paragraph("Resumen del módulo 2", styles['HeadingTeal']))
-    story.append(Paragraph(resumen_carrera_txt, styles['BodySmall']))
-
-    story.append(Paragraph("Fortalezas destacadas", styles['HeadingTeal']))
-    if fortalezas_txt:
-        for item in fortalezas_txt:
-            story.append(Paragraph(f"- {item}", styles['BodySmall']))
-    else:
-        story.append(Paragraph("No se identificaron fortalezas por encima de la referencia.", styles['BodySmall']))
-
-    story.append(Paragraph("Áreas por reforzar", styles['HeadingTeal']))
-    if debilidades_txt:
-        for item in debilidades_txt:
-            story.append(Paragraph(f"- {item}", styles['BodySmall']))
-    else:
-        story.append(Paragraph("No se identificaron brechas por debajo de la referencia.", styles['BodySmall']))
-
-    story.append(Paragraph("Prioridades CHASIDE de la carrera", styles['HeadingTeal']))
-    if prioridades_txt:
-        for item in prioridades_txt:
-            story.append(Paragraph(f"- {item}", styles['BodySmall']))
-    else:
-        story.append(Paragraph("No fue posible identificar prioridades CHASIDE para la carrera.", styles['BodySmall']))
-
-    story.append(Paragraph("Acciones recomendadas", styles['HeadingTeal']))
-    for i, item in enumerate(acciones_txt, start=1):
-        story.append(Paragraph(f"{i}. {item}", styles['BodySmall']))
+    story.append(Paragraph("Ubicación dentro del análisis general", styles['HeadingTeal']))
+    for linea in texto_ubicacion.split("\n"):
+        if linea.strip():
+            story.append(Paragraph(linea.strip(), styles['BodySmall']))
 
     doc.build(story)
     pdf = buffer.getvalue()
     buffer.close()
     return pdf
 
-# Textos para PDF
-resumen_carrera_txt = (
-    f"En {carrera_sel}, la distribución general observada fue: "
-    f"{verde_n} estudiantes con perfil congruente, "
-    f"{amarillo_n} con perfil no acorde, "
-    f"{rojo_n + sinsug_n} sin perfil prioritario claro y "
-    f"{azar_n} con respuestas poco confiables. "
-    f"Para este estudiante, el destino vocacional compatible calculado fue: {destino_compatible}."
+texto_ubicacion_pdf = (
+    f"Distribución general del estudiantado: el estudiante pertenece a la categoría {categoria_larga}, "
+    f"la cual concentra {n_global_cat} estudiantes ({pct_global_cat:.1f}%) del total evaluado.\n"
+    f"Distribución por carrera y categoría: dentro de {carrera_sel}, el estudiante se ubica en la categoría "
+    f"{categoria_larga}, grupo conformado por {n_carrera_cat} estudiantes ({pct_carrera_cat:.1f}%) de su carrera.\n"
+    f"Intensidad del perfil vocacional por carrera: el estudiante fue clasificado como "
+    f"{nivel_alumno if pd.notna(nivel_alumno) else 'No disponible'}. {texto_intensidad}\n"
+    f"Transición vocacional compatible por carrera: "
+    f"{'El perfil del estudiante se mantiene dentro de la carrera elegida.' if destino_compatible == carrera_sel else f'El perfil del estudiante presenta mejor ajuste hacia {destino_compatible}.'}"
 )
-
-fortalezas_pdf = []
-if not fortalezas.empty:
-    for _, row in fortalezas.iterrows():
-        letra = row['Letra']
-        fortalezas_pdf.append(
-            f"{letra} ({estrategias_chaside[letra]['area']}): {row['Delta']:.2f} puntos por arriba de la referencia."
-        )
-
-debilidades_pdf = []
-if not debilidades.empty:
-    for _, row in debilidades.head(3).iterrows():
-        letra = row['Letra']
-        debilidades_pdf.append(
-            f"{letra} ({estrategias_chaside[letra]['area']}): {row['Brecha']:.2f} puntos por debajo de la referencia."
-        )
-
-prioridades_pdf = []
-if not df_prioridades.empty:
-    criticas = df_prioridades[df_prioridades['Dentro_80']].copy()
-    for _, row in criticas.iterrows():
-        prioridades_pdf.append(
-            f"{row['Letra']} ({row['Área']}): error porcentual de {row['Error_Porcentual']:.2f}%."
-        )
 
 pdf_bytes = build_pdf_report(
     estudiante=est_sel,
     carrera=carrera_sel,
-    categoria_larga=categoria_larga,
+    categoria=categoria_larga,
     intensidad=nivel_alumno if pd.notna(nivel_alumno) else "No disponible",
-    area_fuerte=al['Area_Fuerte_Ponderada'],
-    destino=destino_compatible,
-    resumen_carrera_txt=resumen_carrera_txt,
-    fortalezas_txt=fortalezas_pdf,
-    debilidades_txt=debilidades_pdf,
-    acciones_txt=acciones_finales,
-    prioridades_txt=prioridades_pdf
+    texto_ubicacion=texto_ubicacion_pdf
 )
 
+# ============================================
+# 8) DESCARGA PDF
+# ============================================
 st.download_button(
     label="⬇️ Descargar perfil identificado en PDF",
     data=pdf_bytes,
     file_name=f"perfil_CHASIDE_{est_sel.replace(' ', '_')}.pdf",
     mime="application/pdf",
     use_container_width=True
-)
-
-# ============================================
-# 9) UBICACIÓN DEL ESTUDIANTE EN EL ANÁLISIS DEL MÓDULO 2
-# ============================================
-st.markdown("## 📍 Ubicación del estudiante dentro del análisis general")
-
-# Etiquetas largas
-cat_map_largo = {
-    'Verde': 'El perfil coincide con la carrera elegida',
-    'Amarillo': 'El perfil NO va acorde con la carrera elegida',
-    'Rojo': 'No se observa un perfil prioritario',
-    'Sin sugerencia': 'No se observa un perfil prioritario',
-    'Respondió siempre igual': 'Respondió siempre igual'
-}
-
-categoria_larga = cat_map_largo.get(al['Semáforo Vocacional'], al['Semáforo Vocacional'])
-
-# 1. Ubicación en pastel general
-conteo_global = df['Semáforo Vocacional'].value_counts()
-n_global_cat = int(conteo_global.get(al['Semáforo Vocacional'], 0))
-pct_global_cat = (n_global_cat / len(df) * 100) if len(df) else 0
-
-# 2. Ubicación en carrera
-conteo_carrera = d_carrera['Semáforo Vocacional'].value_counts()
-n_carrera_cat = int(conteo_carrera.get(al['Semáforo Vocacional'], 0))
-pct_carrera_cat = (n_carrera_cat / len(d_carrera) * 100) if len(d_carrera) else 0
-
-# 3. Intensidad vocacional
-if pd.notna(nivel_alumno):
-    texto_intensidad = descripcion_intensidad.get(nivel_alumno, nivel_alumno)
-else:
-    texto_intensidad = "No fue posible determinar el nivel de intensidad vocacional para este estudiante."
-
-# 4. Transición compatible
-if destino_compatible == carrera_sel:
-    texto_transicion = "El perfil del estudiante se mantiene dentro de la carrera elegida."
-else:
-    texto_transicion = f"El perfil del estudiante presenta mejor ajuste hacia la carrera **{destino_compatible}**."
-
-st.markdown(
-    f"""
-- **Distribución general del estudiantado:** el estudiante pertenece a la categoría **{categoria_larga}**, 
-la cual concentra **{n_global_cat} estudiantes ({pct_global_cat:.1f}%)** del total evaluado.
-
-- **Distribución por carrera y categoría:** dentro de **{carrera_sel}**, el estudiante se ubica en la categoría 
-**{categoria_larga}**, grupo conformado por **{n_carrera_cat} estudiantes ({pct_carrera_cat:.1f}%)** de su carrera.
-
-- **Intensidad del perfil vocacional por carrera:** el estudiante fue clasificado como **{nivel_alumno if pd.notna(nivel_alumno) else 'No disponible'}**.  
-  {texto_intensidad}
-
-- **Transición vocacional compatible por carrera:** {texto_transicion}
-"""
 )
