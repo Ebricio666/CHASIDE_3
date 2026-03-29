@@ -324,6 +324,25 @@ if not df_intensidad.empty and alumno.index[0] in df_intensidad.index:
 # ============================================
 st.markdown("## 📍 Ubicación del estudiante dentro del análisis general")
 
+st.markdown(
+    """
+En esta sección se muestra cómo se posiciona el estudiante dentro del análisis global de la escala CHASIDE. 
+La lectura se organiza en cuatro niveles:
+
+1. **Distribución general del estudiantado**: indica en qué tipo de perfil quedó clasificado el estudiante 
+   respecto al total de personas evaluadas.
+
+2. **Distribución por carrera y categoría**: muestra cómo se ubica el estudiante dentro del grupo de compañeros 
+   que eligieron la misma carrera.
+
+3. **Intensidad del perfil vocacional por carrera**: permite identificar si el estudiante presenta un ajuste vocacional 
+   sólido, intermedio o débil respecto a la carrera seleccionada.
+
+4. **Transición vocacional compatible por carrera**: explora si, con base en sus fortalezas CHASIDE, 
+   el estudiante parece mantenerse en la carrera elegida o mostrar mayor afinidad hacia otra opción compatible.
+"""
+)
+
 cat_map_largo = {
     'Verde': 'El perfil coincide con la carrera elegida',
     'Amarillo': 'El perfil NO va acorde con la carrera elegida',
@@ -369,6 +388,27 @@ la cual concentra **{n_global_cat} estudiantes ({pct_global_cat:.1f}%)** del tot
   {texto_intensidad}
 
 - **Transición vocacional compatible por carrera:** {texto_transicion}
+"""
+)
+
+st.markdown(
+    f"""
+- **Distribución general del estudiantado:**  
+  El estudiante fue clasificado en la categoría **{categoria_larga}**. 
+  Esta categoría concentra **{n_global_cat} estudiantes ({pct_global_cat:.1f}%)** del total evaluado, 
+  lo que permite ubicar su perfil dentro del panorama general de respuestas.
+
+- **Distribución por carrera y categoría:**  
+  Dentro de **{carrera_sel}**, el estudiante también se ubica en la categoría **{categoria_larga}**. 
+  En esta carrera, dicho grupo está conformado por **{n_carrera_cat} estudiantes ({pct_carrera_cat:.1f}%)**, 
+  por lo que su resultado puede interpretarse en comparación con quienes eligieron la misma formación profesional.
+
+- **Intensidad del perfil vocacional por carrera:**  
+  El estudiante fue clasificado como **{nivel_alumno if pd.notna(nivel_alumno) else 'No disponible'}**.  
+  {texto_intensidad}
+
+- **Transición vocacional compatible por carrera:**  
+  {texto_transicion}
 """
 )
 
