@@ -798,3 +798,56 @@ st.download_button(
     mime="application/pdf",
     use_container_width=True
 )
+
+# ============================================
+# 9) UBICACIÓN DEL ESTUDIANTE EN EL ANÁLISIS DEL MÓDULO 2
+# ============================================
+st.markdown("## 📍 Ubicación del estudiante dentro del análisis general")
+
+# Etiquetas largas
+cat_map_largo = {
+    'Verde': 'El perfil coincide con la carrera elegida',
+    'Amarillo': 'El perfil NO va acorde con la carrera elegida',
+    'Rojo': 'No se observa un perfil prioritario',
+    'Sin sugerencia': 'No se observa un perfil prioritario',
+    'Respondió siempre igual': 'Respondió siempre igual'
+}
+
+categoria_larga = cat_map_largo.get(al['Semáforo Vocacional'], al['Semáforo Vocacional'])
+
+# 1. Ubicación en pastel general
+conteo_global = df['Semáforo Vocacional'].value_counts()
+n_global_cat = int(conteo_global.get(al['Semáforo Vocacional'], 0))
+pct_global_cat = (n_global_cat / len(df) * 100) if len(df) else 0
+
+# 2. Ubicación en carrera
+conteo_carrera = d_carrera['Semáforo Vocacional'].value_counts()
+n_carrera_cat = int(conteo_carrera.get(al['Semáforo Vocacional'], 0))
+pct_carrera_cat = (n_carrera_cat / len(d_carrera) * 100) if len(d_carrera) else 0
+
+# 3. Intensidad vocacional
+if pd.notna(nivel_alumno):
+    texto_intensidad = descripcion_intensidad.get(nivel_alumno, nivel_alumno)
+else:
+    texto_intensidad = "No fue posible determinar el nivel de intensidad vocacional para este estudiante."
+
+# 4. Transición compatible
+if destino_compatible == carrera_sel:
+    texto_transicion = "El perfil del estudiante se mantiene dentro de la carrera elegida."
+else:
+    texto_transicion = f"El perfil del estudiante presenta mejor ajuste hacia la carrera **{destino_compatible}**."
+
+st.markdown(
+    f"""
+- **Distribución general del estudiantado:** el estudiante pertenece a la categoría **{categoria_larga}**, 
+la cual concentra **{n_global_cat} estudiantes ({pct_global_cat:.1f}%)** del total evaluado.
+
+- **Distribución por carrera y categoría:** dentro de **{carrera_sel}**, el estudiante se ubica en la categoría 
+**{categoria_larga}**, grupo conformado por **{n_carrera_cat} estudiantes ({pct_carrera_cat:.1f}%)** de su carrera.
+
+- **Intensidad del perfil vocacional por carrera:** el estudiante fue clasificado como **{nivel_alumno if pd.notna(nivel_alumno) else 'No disponible'}**.  
+  {texto_intensidad}
+
+- **Transición vocacional compatible por carrera:** {texto_transicion}
+"""
+)
